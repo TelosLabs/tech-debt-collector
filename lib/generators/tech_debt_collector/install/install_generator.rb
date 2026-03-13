@@ -11,17 +11,17 @@ module TechDebtCollector
       desc "Installs AI tech debt collector workflow, config, and prompt files"
 
       def copy_workflow
-        say "Copying GitHub Action workflow...", :green
+        say "Adding GitHub Action workflow...", :green
         copy_file "ai_tech_debt_scan.yml", ".github/workflows/ai_tech_debt_scan.yml"
       end
 
       def copy_config
-        say "Copying tech debt settings...", :green
+        say "Adding tech debt settings...", :green
         copy_file "tech_debt_settings.yml", "config/tech_debt_settings.yml"
       end
 
       def copy_prompt
-        say "Copying semantic analysis prompt...", :green
+        say "Adding semantic analysis prompt...", :green
         copy_file "tech_debt_analysis.md", ".github/prompts/tech_debt_analysis.md"
       end
 
