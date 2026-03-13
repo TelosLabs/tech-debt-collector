@@ -3,14 +3,14 @@
 require_relative 'lib/tech_debt_collector/version'
 
 Gem::Specification.new do |spec|
-  spec.name = 'tech_debt_collector'
+  spec.name = 'tech-debt-collector'
   spec.version = TechDebtCollector::VERSION
   spec.authors = ['Telos Labs']
   spec.email = ['your@email.com']
 
   spec.summary = 'AI-powered semantic tech debt scanning for Rails projects'
   spec.description = 'Detects semantic tech debt in Rails codebases, triages findings with LLMs, and manages GitHub issues with fingerprint-based idempotency.'
-  spec.homepage = 'https://github.com/TelosLabs/tech_debt_collector'
+  spec.homepage = 'https://github.com/TelosLabs/tech-debt-collector'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.1.0'
 
@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir['exe/**/*', 'lib/**/*', 'LICENSE.txt', 'README.md']
   spec.bindir = 'exe'
-  spec.executables = ['tech_debt_collector']
+  spec.executables = ['tech-debt-collector']
   spec.require_paths = ['lib']
 
   spec.add_dependency 'debride', '~> 1.12'
