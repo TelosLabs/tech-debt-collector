@@ -50,7 +50,7 @@ bundle install
 ### 2) Install project files
 
 ```sh
-bin/rails generate tech-debt-collector:install
+bin/rails generate tech_debt_collector:install
 ```
 
 ### 3) Configure GitHub secrets

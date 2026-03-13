@@ -6,7 +6,7 @@ module TechDebtCollector
   module Generators
     class InstallGenerator < Rails::Generators::Base
       source_root File.expand_path("templates", __dir__)
-      namespace "tech-debt-collector:install"
+      namespace "tech_debt_collector:install"
 
       desc "Installs AI tech debt collector workflow, config, and prompt files"
 
