@@ -167,6 +167,11 @@ bundle exec tech-debt-collector [options]
 - Verify `OPENAI_API_KEY` is present in repository secrets
 - Confirm `llm.model` is a valid model for your account/project
 
+## TODO
+
+- [ ] Enhance fingerprint generation to avoid creating duplicate issues for the same code, given AI-generated titles.
+- [ ] Define a strategy to handle existing issues that are closed (the issue appeared again or it was originally ignored)
+
 ## License
 
 MIT
