@@ -34,6 +34,13 @@ module TechDebt
       raw.fetch("reporting")
     end
 
+    def auto_assign
+      value = raw["auto_assign"]
+      return { "enabled" => false } unless value.is_a?(Hash)
+
+      { "enabled" => false }.merge(value)
+    end
+
     private
 
     def validate!
