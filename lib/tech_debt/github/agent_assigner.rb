@@ -94,9 +94,21 @@ module TechDebt
       end
 
       COPILOT_ASSIGNEE = "copilot-swe-agent[bot]"
+      ASSIGN_RETRY_ATTEMPTS = 3
+      ASSIGN_RETRY_BASE_DELAY = 2
 
       def assign_copilot(issue_number)
-        @client.add_assignees(@repo, issue_number, [COPILOT_ASSIGNEE])
+        attempts = 0
+
+        begin
+          @client.add_assignees(@repo, issue_number, [COPILOT_ASSIGNEE])
+        rescue Octokit::NotFound
+          attempts += 1
+          raise if attempts >= ASSIGN_RETRY_ATTEMPTS
+
+          sleep(ASSIGN_RETRY_BASE_DELAY * attempts)
+          retry
+        end
       end
 
       def assign_cursor(issue_number, item)
