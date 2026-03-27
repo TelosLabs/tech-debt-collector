@@ -11,7 +11,7 @@ module TechDebt
         'high' => 2
       }.freeze
 
-      DEFAULT_CURSOR_PROMPT = <<~PROMPT.strip.freeze
+      DEFAULT_AGENT_COMMENT_PROMPT = <<~PROMPT.strip.freeze
         Analyze and fix this tech debt issue. Read the description for file path,
         debt type, and suggested refactoring approach. Open a PR when done.
       PROMPT
@@ -38,6 +38,10 @@ module TechDebt
           assign_copilot(issue_number)
         when 'cursor'
           assign_cursor(issue_number, item)
+        when 'opencode'
+          assign_opencode(issue_number, item)
+        when 'claude'
+          assign_claude(issue_number, item)
         else
           warn "Unknown auto_assign.agent '#{@agent}', skipping assignment"
           return false
@@ -47,7 +51,8 @@ module TechDebt
       rescue Octokit::NotFound => e
         warn "[wall-e] Auto-assignment failed for issue ##{issue_number}: #{e.message}. " \
              'For Copilot: ensure coding agent is enabled for the repo/org and the token ' \
-             'has Issues write + Metadata read permissions (use a PAT from a Copilot-licensed user).'
+             'has Issues write + Metadata read permissions (use a PAT from a Copilot-licensed user). ' \
+             'For Cursor/OpenCode/Claude comments: confirm the token can create issue comments.'
         false
       rescue StandardError => e
         warn "[wall-e] Auto-assignment failed for issue ##{issue_number}: #{e.class} - #{e.message}"
@@ -122,9 +127,46 @@ module TechDebt
       end
 
       def build_cursor_prompt(item)
-        base_prompt = @settings.fetch('cursor_prompt', DEFAULT_CURSOR_PROMPT).to_s.strip
+        base_prompt = @settings.fetch('cursor_prompt', DEFAULT_AGENT_COMMENT_PROMPT).to_s.strip
         prompt = base_prompt.start_with?('@cursor') ? base_prompt : "@cursor #{base_prompt}"
 
+        agent_comment_with_context(prompt, item)
+      end
+
+      def assign_opencode(issue_number, item)
+        @client.add_comment(@repo, issue_number, build_opencode_prompt(item))
+      end
+
+      def build_opencode_prompt(item)
+        base_prompt = @settings.fetch('opencode_prompt', DEFAULT_AGENT_COMMENT_PROMPT).to_s.strip
+        prompt = if opencode_trigger?(base_prompt)
+                   base_prompt
+                 else
+                   "/opencode #{base_prompt}"
+                 end
+
+        agent_comment_with_context(prompt, item)
+      end
+
+      def assign_claude(issue_number, item)
+        @client.add_comment(@repo, issue_number, build_claude_prompt(item))
+      end
+
+      def build_claude_prompt(item)
+        base_prompt = @settings.fetch('claude_prompt', DEFAULT_AGENT_COMMENT_PROMPT).to_s.strip
+        prompt = base_prompt.start_with?('@claude') ? base_prompt : "@claude #{base_prompt}"
+
+        agent_comment_with_context(prompt, item)
+      end
+
+      def opencode_trigger?(text)
+        trimmed = text.lstrip
+        return true if trimmed.match?(/\A\/opencode(?:\s|\z)/)
+
+        trimmed.match?(/\A\/oc(?:\s|\z)/)
+      end
+
+      def agent_comment_with_context(prompt, item)
         [
           prompt,
           '',

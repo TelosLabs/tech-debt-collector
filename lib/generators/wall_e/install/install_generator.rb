@@ -34,7 +34,7 @@ module WallE
         say "Next steps:", :yellow
         say ""
         say "  1. Add OPENAI_API_KEY as a GitHub Actions secret"
-        say "  2. (Optional) Add AGENT_ASSIGN_TOKEN for auto-assign to Copilot/Cursor"
+        say "  2. (Optional) Add AGENT_ASSIGN_TOKEN for auto-assign to Claude, Copilot, Cursor, or OpenCode"
         say "  3. Review .github/workflows/wall_e_scan.yml triggers"
         say "  4. Tune config/wall_e_settings.yml thresholds if needed"
         say "  5. Test locally:"

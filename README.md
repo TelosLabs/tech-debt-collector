@@ -4,6 +4,8 @@ AI-powered semantic tech debt scanning for Ruby on Rails applications.
 
 `wall-e` helps teams detect and track architectural debt that linters usually miss: duplicated business logic, leaked domain rules, dead code, and complexity hotspots. It runs in GitHub Actions, triages findings with an LLM, and creates deduplicated GitHub Issues using deterministic fingerprints.
 
+**Semantic triage (default scan path) uses the OpenAI Chat Completions API** via the `ruby-openai` gem. Settings such as `llm.provider` in `config/wall_e_settings.yml` are reserved for future multi-provider support and are not honored today. To run without any LLM calls, use `--skip-llm` (static collectors only).
+
 ## Why this gem exists
 
 Traditional static analysis catches syntax and style problems. It usually does not catch semantic debt such as:
@@ -19,18 +21,18 @@ This gem combines static signals (`debride`, `flog`) plus LLM triage so you get 
 
 Running the install generator adds three project files:
 
-| File                                      | Purpose                            |
-| ----------------------------------------- | ---------------------------------- |
-| `.github/workflows/wall_e_scan.yml` | Scheduled/manual CI runner         |
-| `config/wall_e_settings.yml`        | Scanner, model, and issue settings |
-| `.github/prompts/wall_e_analysis.md`| System prompt for semantic triage  |
+| File                                 | Purpose                            |
+| ------------------------------------ | ---------------------------------- |
+| `.github/workflows/wall_e_scan.yml`  | Scheduled/manual CI runner         |
+| `config/wall_e_settings.yml`         | Scanner, model, and issue settings |
+| `.github/prompts/wall_e_analysis.md` | System prompt for semantic triage  |
 
 ## Requirements
 
 - Ruby >= 3.1
 - Rails >= 7.0 (for the install generator)
 - GitHub repository with Actions enabled
-- OpenAI API key
+- **OpenAI API key** (required for semantic triage; not required when using `--skip-llm`)
 
 ## Installation
 
@@ -55,21 +57,21 @@ bin/rails generate wall_e:install
 
 ### 3) Configure GitHub secrets
 
-Add this repository secret:
+Add this repository secret for the scan job:
 
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY` — required for **OpenAI**-based semantic triage (omit if you only ever run with `--skip-llm`)
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions and is used for issue queries/creation and, by default, for assignment/comment operations when no explicit assignment token is configured.
 
 Optional (recommended if you enable auto-assignment or use Copilot-based assignment rules):
 
-- `AGENT_ASSIGN_TOKEN` — Personal Access Token from a licensed Copilot/Cursor user for assignment/comment operations. If this is not set, the action will fall back to `GITHUB_TOKEN`, which may not be sufficient for some assignment providers (for example, Copilot assignment may require a user PAT).
+- `AGENT_ASSIGN_TOKEN` — Personal Access Token for assignment/comment operations (Copilot, Cursor `@cursor` comments, or OpenCode `/opencode` comments). If this is not set, the action will fall back to `GITHUB_TOKEN`, which may not be sufficient for some assignment providers (for example, Copilot assignment may require a user PAT).
 
 ## How it works
 
 1. Collect static candidates from dead-code and complexity analyzers.
 2. Read code snippets for candidate files.
-3. Send candidates + snippets to the LLM for semantic triage with Rails-focused risk checks.
+3. Send candidates + snippets to **OpenAI** for semantic triage with Rails-focused risk checks.
 4. Normalize findings and compute fingerprints.
 5. Search GitHub Issues for existing fingerprints.
 6. Create only new issues (idempotent behavior).
@@ -141,7 +143,7 @@ Add this to `config/wall_e_settings.yml`:
 ```yaml
 auto_assign:
   enabled: true
-  agent: "copilot" # "copilot" | "cursor"
+  agent: "copilot" # "copilot" | "cursor" | "opencode"
   token_env: "AGENT_ASSIGN_TOKEN"
   filters:
     min_severity: "medium" # low, medium, high
@@ -149,12 +151,16 @@ auto_assign:
   cursor_prompt: |
     Analyze and fix this tech debt issue. Read the description for file path,
     debt type, and suggested refactoring approach. Open a PR when done.
+  opencode_prompt: |
+    Analyze and fix this tech debt issue. Read the description for file path,
+    debt type, and suggested refactoring approach. Open a PR when done.
 ```
 
 How each mode works:
 
-- `agent: "copilot"`: assigns the issue to `copilot`
-- `agent: "cursor"`: posts a `cursor` comment with your configured prompt
+- `agent: "copilot"`: assigns the issue to GitHub Copilot coding agent (`copilot-swe-agent[bot]`)
+- `agent: "cursor"`: posts an issue comment that starts with `@cursor` and your configured `cursor_prompt`
+- `agent: "opencode"`: posts an issue comment that includes `/opencode` (or your own `/oc` …) and your configured `opencode_prompt`, so a separate [OpenCode GitHub workflow](https://opencode.ai/docs/github/) can pick it up
 
 Recommended setup:
 
@@ -174,6 +180,14 @@ Recommended setup:
 - Use a PAT from a Cursor team user in `AGENT_ASSIGN_TOKEN`.
 - Tune `cursor_prompt` to enforce your branch/PR/testing conventions.
 
+### OpenCode setup
+
+OpenCode runs in **its own** GitHub Actions workflow when a matching comment appears (for example `/opencode` or `/oc`). wall-e only **creates that comment** on new issues; it does not install or run OpenCode for you.
+
+- Follow [OpenCode’s GitHub documentation](https://opencode.ai/docs/github/) to install the GitHub app, add the OpenCode workflow (for example `issue_comment` triggers), and configure model/API keys **on that workflow** (for example `ANTHROPIC_API_KEY`).
+- Set `auto_assign.agent` to `opencode` and tune `opencode_prompt`. If your prompt does not already start with `/opencode` or `/oc`, wall-e prefixes `/opencode` automatically.
+- Use `AGENT_ASSIGN_TOKEN` (or a token with permission to create issue comments) so the scan job can post the trigger comment.
+
 Assignment is best-effort: if assignment fails, issue creation still succeeds.
 
 ## Configuration reference
@@ -182,15 +196,15 @@ Main settings are in `config/wall_e_settings.yml`.
 
 Key sections:
 
-- `llm`: provider/model/token env/temperature/token budget
+- `llm`: model, API key env name, temperature, token budget (semantic triage is **OpenAI-only** today; `provider` is not yet used)
 - `llm.retry_attempts` and `llm.retry_base_delay_seconds`: exponential backoff for OpenAI 429s
 - `llm.batch_size` and `llm.inter_batch_delay_seconds`: split semantic triage into smaller LLM calls
 - `analysis.paths` and `analysis.exclude_paths`: scan scope
 - `analysis.debt_types`: per-debt toggles and thresholds
 - `github.labels`, `github.issue_prefix`, `github.max_issues_per_run`
 - `reporting.summary_path`: JSON summary output
-- `auto_assign`: optional post-creation dispatch to Copilot or Cursor
-- `auto_assign.assign_pre_delay_seconds`: delay before each Copilot assignment (default `3`)
+- `auto_assign`: optional post-creation dispatch to Copilot, Cursor, or OpenCode (comment trigger)
+- `auto_assign.assign_pre_delay_seconds`: delay before each Copilot assignment (default `5`)
 
 `ai-detected` and `severity:*` labels are managed automatically by the gem. Keep `github.labels` for shared/static labels (for example `tech-debt`).
 
@@ -211,13 +225,13 @@ The semantic triage behavior is defined in `.github/prompts/wall_e_analysis.md` 
 bundle exec wall-e [options]
 ```
 
-| Option            | Description                                |
-| ----------------- | ------------------------------------------ |
-| `--config PATH`   | Path to settings YAML                      |
-| `--prompt PATH`   | Path to semantic prompt markdown           |
-| `--dry-run`       | Do not create issues                       |
-| `--skip-llm`      | Skip semantic triage                       |
-| `--max-issues N`  | Override max issues to create (for testing)|
+| Option           | Description                                 |
+| ---------------- | ------------------------------------------- |
+| `--config PATH`  | Path to settings YAML                       |
+| `--prompt PATH`  | Path to semantic prompt markdown            |
+| `--dry-run`      | Do not create issues                        |
+| `--skip-llm`     | Skip semantic triage                        |
+| `--max-issues N` | Override max issues to create (for testing) |
 
 ## Troubleshooting
 
@@ -237,10 +251,10 @@ bundle exec wall-e [options]
 - Confirm findings are not duplicates by fingerprint
 - Verify `GITHUB_TOKEN` has `issues: write` permission in workflow
 
-**LLM provider errors**
+**LLM / OpenAI errors**
 
-- Verify `OPENAI_API_KEY` is present in repository secrets
-- Confirm `llm.model` is a valid model for your account/project
+- Semantic triage calls **OpenAI only**; verify `OPENAI_API_KEY` is present in repository secrets
+- Confirm `llm.model` is a valid OpenAI model for your account/project
 
 **OpenAI 429 rate limits**
 
@@ -268,6 +282,7 @@ bundle exec wall-e [options]
 
 - [ ] Enhance fingerprint generation to avoid creating duplicate issues for the same code, given AI-generated titles.
 - [ ] Define a strategy to handle existing issues that are closed (the issue appeared again or it was originally ignored)
+- [ ] Add support for other providers for LLM triage with adapter pattern (Anthropic, Gemini, etc.)
 
 ## License
 
