@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
+require 'json'
 require 'octokit'
 require_relative 'fingerprint'
 
 module TechDebt
   module Github
     class IssueManager
+      VERIFICATION_MARKER = 'wall_e_verification:'
+
       AUTO_LABEL_DEFINITIONS = [
         { 'name' => 'ai-detected', 'color' => '7057ff' },
         { 'name' => 'severity:high', 'color' => 'b60205' },
@@ -48,6 +51,31 @@ module TechDebt
         @client.create_issue(@repo, title, body, labels: labels.uniq)
       end
 
+      def self.parse_verification_from_body(body)
+        return nil if body.nil? || body.empty?
+
+        marker = VERIFICATION_MARKER
+        start_idx = body.index(marker)
+        return nil unless start_idx
+
+        json_start = body.index('{', start_idx)
+        return nil unless json_start
+
+        depth = 0
+        (json_start...body.length).each do |i|
+          case body[i]
+          when '{'
+            depth += 1
+          when '}'
+            depth -= 1
+            return JSON.parse(body[json_start..i]) if depth.zero?
+          end
+        end
+        nil
+      rescue JSON::ParserError
+        nil
+      end
+
       private
 
       def configured_labels
@@ -72,6 +100,9 @@ module TechDebt
       end
 
       def build_issue_body(item, fingerprint)
+        criteria = verification_criteria_markdown(item)
+        verification_comment = build_verification_json_comment(item)
+
         <<~BODY
           **Type:** #{item.fetch('debt_type')} | **Severity:** #{item.fetch('severity')} | **File:** `#{item.fetch('file_path')}`
 
@@ -81,14 +112,35 @@ module TechDebt
           ### Suggested Refactor
           #{item.fetch('suggested_refactor')}
 
-          ### Detection Metadata
+          #{criteria}### Detection Metadata
           - **Detected by:** AI Tech Debt Agent (v1)
           - **Run date:** #{Time.now.utc.iso8601}
           - **Score:** #{item.fetch('score', 0)}
           - **Score details:** #{score_details(item)}
 
           #{Github::Fingerprint.to_html_comment(fingerprint)}
+
+          #{verification_comment}
         BODY
+      end
+
+      def verification_criteria_markdown(item)
+        criteria = Array(item['acceptance_criteria']).map(&:to_s).map(&:strip).reject(&:empty?)
+        return '' if criteria.empty?
+
+        lines = ['### Verification Criteria', *criteria.map { |c| "- #{c}" }, '']
+        "#{lines.join("\n")}\n"
+      end
+
+      def build_verification_json_comment(item)
+        payload = {
+          'debt_type' => item.fetch('debt_type'),
+          'file_path' => item.fetch('file_path'),
+          'identifier' => item.fetch('identifier'),
+          'baseline_metrics' => item.fetch('baseline_metrics', {}),
+          'acceptance_criteria' => Array(item['acceptance_criteria'])
+        }
+        "<!-- #{VERIFICATION_MARKER}#{JSON.generate(payload)} -->"
       end
 
       def score_details(item)

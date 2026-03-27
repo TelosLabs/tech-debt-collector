@@ -48,6 +48,17 @@ module TechDebt
       { "enabled" => false }.merge(value)
     end
 
+    def verification
+      value = raw["verification"]
+      return {} unless value.is_a?(Hash)
+
+      value
+    end
+
+    def close_issues_on_verification_pass?
+      verification.fetch("close_on_pass", false)
+    end
+
     private
 
     def validate!

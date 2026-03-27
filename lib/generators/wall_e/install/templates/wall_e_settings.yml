@@ -40,3 +40,7 @@ auto_assign:
   filters:
     min_severity: "medium" # "low" | "medium" | "high"
     debt_types: [] # empty = all debt types
+
+# Optional: PR verification (--verify-pr) can auto-close issues when all checks pass (use with care).
+verification:
+  close_on_pass: false

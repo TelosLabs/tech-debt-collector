@@ -119,32 +119,34 @@ module TechDebt
       end
 
       def assign_cursor(issue_number, item)
-        @client.add_comment(@repo, issue_number, build_cursor_prompt(item))
+        @client.add_comment(@repo, issue_number, build_cursor_prompt(item, issue_number))
       end
 
-      def build_cursor_prompt(item)
-        agent_comment_with_context("@cursor #{DEFAULT_AGENT_COMMENT_PROMPT}", item)
+      def build_cursor_prompt(item, issue_number)
+        agent_comment_with_context("@cursor #{DEFAULT_AGENT_COMMENT_PROMPT}", item, issue_number: issue_number)
       end
 
       def assign_opencode(issue_number, item)
-        @client.add_comment(@repo, issue_number, build_opencode_prompt(item))
+        @client.add_comment(@repo, issue_number, build_opencode_prompt(item, issue_number))
       end
 
-      def build_opencode_prompt(item)
-        agent_comment_with_context("/opencode #{DEFAULT_AGENT_COMMENT_PROMPT}", item)
+      def build_opencode_prompt(item, issue_number)
+        agent_comment_with_context("/opencode #{DEFAULT_AGENT_COMMENT_PROMPT}", item, issue_number: issue_number)
       end
 
       def assign_claude(issue_number, item)
-        @client.add_comment(@repo, issue_number, build_claude_prompt(item))
+        @client.add_comment(@repo, issue_number, build_claude_prompt(item, issue_number))
       end
 
-      def build_claude_prompt(item)
-        agent_comment_with_context("@claude #{DEFAULT_AGENT_COMMENT_PROMPT}", item)
+      def build_claude_prompt(item, issue_number)
+        agent_comment_with_context("@claude #{DEFAULT_AGENT_COMMENT_PROMPT}", item, issue_number: issue_number)
       end
 
-      def agent_comment_with_context(prompt, item)
+      def agent_comment_with_context(prompt, item, issue_number:)
         [
           prompt,
+          '',
+          "Fixes ##{issue_number}",
           '',
           'Context:',
           "- debt_type: #{item.fetch('debt_type')}",

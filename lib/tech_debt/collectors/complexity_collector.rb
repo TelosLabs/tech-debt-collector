@@ -23,12 +23,6 @@ module TechDebt
 
       private
 
-      def target_files
-        included = config.analysis.fetch("paths", []).flat_map { |pattern| Dir.glob(pattern) }
-        excluded = config.analysis.fetch("exclude_paths", []).flat_map { |pattern| Dir.glob(pattern) }
-        (included - excluded).uniq.select { |path| path.end_with?(".rb") && File.file?(path) }
-      end
-
       def parse_output(output, threshold)
         output.each_line.filter_map do |line|
           # Example line:
