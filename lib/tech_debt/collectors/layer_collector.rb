@@ -26,11 +26,11 @@ module TechDebt
       end
 
       def model_file?(file)
-        file.match?(%r{/app/models/})
+        file.match?(%r{(?:\A|/)app/models/})
       end
 
       def job_file?(file)
-        file.match?(%r{/app/jobs/})
+        file.match?(%r{(?:\A|/)app/jobs/})
       end
 
       def current_attribute_violations(file, content)

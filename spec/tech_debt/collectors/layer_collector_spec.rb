@@ -7,24 +7,46 @@ require "tech_debt/collectors/layer_collector"
 RSpec.describe TechDebt::Collectors::LayerCollector do
   let(:config) { instance_double(TechDebt::Config, analysis: {"paths" => [], "exclude_paths" => []}) }
 
-  subject(:collector) { described_class.new(config, files: []) }
+  before { allow(File).to receive(:file?).and_return(true) }
 
-  # These exercise the line-number extraction directly; #model_file?/#job_file?
-  # gating is covered by the collector's own path filtering.
-  describe "line extraction" do
-    it "reports the line of a Current.* reference" do
+  def collect(file, content)
+    allow(File).to receive(:read).with(file).and_return(content)
+    described_class.new(config, files: [file]).call
+  end
+
+  describe "#call" do
+    it "flags a Current.* reference in a model at relative path and reports its line" do
       content = "class Order\n  def total\n    Current.user.id\n  end\nend\n"
-      result = collector.send(:current_attribute_violations, "app/models/order.rb", content).first
-      expect(result).to include(type: "leaked_business_logic", identifier: "Order", line: 3, end_line: 3)
+      expect(collect("app/models/order.rb", content).first).to include(
+        type: "leaked_business_logic", identifier: "Order", line: 3, end_line: 3
+      )
     end
 
-    it "reports the line of an anemic perform" do
+    it "flags an anemic perform in a job at relative path and reports its line" do
       content = "class SyncJob\n  def perform(id)\n    Model.sync(id)\n  end\nend\n"
-      result = collector.send(:anemic_job_signals, "app/jobs/sync_job.rb", content).first
-      expect(result).to include(identifier: "SyncJob#perform", line: 2, end_line: 2)
+      expect(collect("app/jobs/sync_job.rb", content).first).to include(
+        identifier: "SyncJob#perform", line: 2, end_line: 2
+      )
     end
 
+    it "also matches nested engine paths" do
+      content = "class Order\n  def total\n    Current.user.id\n  end\nend\n"
+      expect(collect("engines/billing/app/models/order.rb", content)).not_to be_empty
+    end
+
+    it "does not treat a non-app/models path as a model file" do
+      content = "class Order\n  Current.user\nend\n"
+      expect(collect("lib/myapp/models/order.rb", content)).to eq([])
+    end
+
+    it "returns nothing for a model without a Current.* reference" do
+      expect(collect("app/models/order.rb", "class Order\nend\n")).to eq([])
+    end
+  end
+
+  describe "#line_of" do
     it "falls back to line 1 when the pattern is absent" do
+      collector = described_class.new(config, files: [])
       expect(collector.send(:line_of, "class Order\nend\n", /nope/)).to eq(1)
     end
   end
