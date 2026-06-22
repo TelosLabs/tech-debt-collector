@@ -2,6 +2,7 @@
 
 require 'json'
 require 'octokit'
+require_relative 'client'
 require_relative 'fingerprint'
 
 module TechDebt
@@ -21,12 +22,9 @@ module TechDebt
       attr_reader :repo
 
       def initialize(config)
-        token = ENV.fetch('GITHUB_TOKEN')
-        @repo = config.github['repo'] || ENV['GITHUB_REPOSITORY']
-        raise ArgumentError, 'github.repo or GITHUB_REPOSITORY is required' if @repo.nil? || @repo.empty?
-
+        @repo = Github::Client.repo(config)
         @config = config
-        @client = Octokit::Client.new(access_token: token)
+        @client = Github::Client.build
       end
 
       # Ensure that the labels are created in the repository

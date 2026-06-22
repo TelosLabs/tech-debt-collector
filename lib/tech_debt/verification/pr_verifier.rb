@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-require "octokit"
+require_relative "../github/client"
 require_relative "../github/issue_manager"
+require_relative "../github/pull_request"
 require_relative "llm_verifier"
 require_relative "result_reporter"
 require_relative "static_verifier"
@@ -16,10 +17,9 @@ module TechDebt
         @pr_number = pr_number.to_i
         @verification_prompt_path = verification_prompt_path
         @dry_run = dry_run
-        @repo = config.github["repo"] || ENV["GITHUB_REPOSITORY"]
-        raise ArgumentError, "github.repo or GITHUB_REPOSITORY is required" if @repo.nil? || @repo.empty?
-
-        @client = Octokit::Client.new(access_token: ENV.fetch("GITHUB_TOKEN"))
+        @repo = Github::Client.repo(config)
+        @client = Github::Client.build
+        @pull_request = Github::PullRequest.new(@client, @repo, @pr_number)
       end
 
       def run
@@ -34,7 +34,7 @@ module TechDebt
           }
         end
 
-        rb_files, patches = pull_request_file_index
+        rb_files, patches = @pull_request.ruby_file_index
         static = StaticVerifier.new(@config, changed_rb_files: rb_files)
 
         llm_verifier = nil
@@ -72,14 +72,7 @@ module TechDebt
       end
 
       def extract_issue_numbers
-        pr = @client.pull_request(@repo, @pr_number)
-        nums = []
-        pr.body.to_s.scan(ISSUE_REF) { nums << Regexp.last_match(1).to_i }
-        @client.pull_request_commits(@repo, @pr_number).each do |c|
-          msg = c.commit&.message
-          msg.to_s.scan(ISSUE_REF) { nums << Regexp.last_match(1).to_i }
-        end
-        nums.uniq.sort
+        @pull_request.linked_issue_numbers(ISSUE_REF)
       end
 
       def load_verified_payload(issue_number)
@@ -88,18 +81,6 @@ module TechDebt
         return nil unless payload
 
         { issue_number: issue_number, payload: payload }
-      end
-
-      def pull_request_file_index
-        rb_files = []
-        patches = {}
-        @client.pull_request_files(@repo, @pr_number).each do |f|
-          next unless f.filename.end_with?(".rb")
-
-          rb_files << f.filename
-          patches[f.filename] = f.patch.to_s
-        end
-        [rb_files.uniq, patches]
       end
 
       def build_static_result(issue_number, payload, static_out)

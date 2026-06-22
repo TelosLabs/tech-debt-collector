@@ -64,6 +64,13 @@ module TechDebt
       verification.fetch("close_on_pass", false)
     end
 
+    def pr_delta
+      value = raw["pr_delta"]
+      return { "enabled" => false } unless value.is_a?(Hash)
+
+      { "enabled" => false }.merge(value)
+    end
+
     private
 
     def validate!

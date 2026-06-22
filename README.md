@@ -26,6 +26,7 @@ Running the install generator adds these project files:
 | -------------------------------------- | -------------------------------------------- |
 | `.github/workflows/wall_e_scan.yml`    | Scheduled/manual scan                        |
 | `.github/workflows/wall_e_verify.yml`    | Optional PR verification on `pull_request`   |
+| `.github/workflows/wall_e_pr_delta.yml`  | Per-PR debt delta comment on `pull_request`  |
 | `config/wall_e_settings.yml`           | Scanner, LLM, GitHub, auto-assign, verification |
 | `.github/prompts/wall_e_analysis.md`   | System prompt for semantic triage            |
 | `.github/prompts/wall_e_issue_writer.md` | Second-pass prompt: criteria + baselines   |
@@ -191,6 +192,35 @@ verification:
 
 Install the **`wall_e_verify`** workflow (via `rails g wall_e:install`) to run verification on `pull_request` events. If no linked issues contain wall-e verification metadata, the run exits early with minimal work.
 
+### Per-PR debt delta (`--pr-delta`)
+
+Comment on a pull request with the debt it **adds on its changed lines**. This is a fast, static-only feedback loop that runs on every PR, complementary to the scheduled scan (which files tracked issues) and `--verify-pr` (which checks fixes for existing issues).
+
+```sh
+bundle exec wall-e --pr-delta 42
+bundle exec wall-e --pr-delta 42 --dry-run
+```
+
+How it works:
+
+1. Fetches the PR's changed Ruby files and diffs.
+2. Runs the static collectors (`debride`, `flog`, `flay`, layer checks) scoped to those files.
+3. Keeps only findings whose line range overlaps the lines the PR actually added.
+4. Posts (or **updates**) a single summary comment marked with `<!-- wall_e_pr_delta -->`, so repeated pushes edit one comment instead of stacking duplicates.
+
+No LLM is called and no issues are created. The comment is informational unless you opt into gating.
+
+Configure in `config/wall_e_settings.yml`:
+
+```yaml
+pr_delta:
+  enabled: true
+  fail_on: "none" # "none" (comment only) | "high" (fail check on high-severity) | "any"
+  debt_types: [] # empty = all debt types
+```
+
+With `fail_on: "high"` or `"any"`, the command exits non-zero when matching findings exist, turning the PR check red. Install the **`wall_e_pr_delta`** workflow (via `rails g wall_e:install`) to run it on `pull_request` events; it only needs `GITHUB_TOKEN`.
+
 ## GitHub Actions usage
 
 The **scan** workflow supports:
@@ -199,6 +229,8 @@ The **scan** workflow supports:
 - `workflow_dispatch` with optional `dry_run` input
 
 The **verify** workflow (`wall_e_verify.yml`) runs on `pull_request` (`opened`, `synchronize`) and executes `bundle exec wall-e --verify-pr <number>`.
+
+The **pr_delta** workflow (`wall_e_pr_delta.yml`) runs on the same `pull_request` events and executes `bundle exec wall-e --pr-delta <number>`. It is static-only (no `OPENAI_API_KEY` needed) and uses `concurrency` to cancel superseded runs.
 
 Manual scan example:
 
@@ -313,6 +345,7 @@ bundle exec wall-e [options]
 | `--skip-llm`                | Skip triage and issue writer; static collectors only |
 | `--max-issues N`            | Override max issues to create (for testing) |
 | `--verify-pr NUMBER`        | Run PR verification instead of a repo scan |
+| `--pr-delta NUMBER`         | Comment on a PR with debt added on its changed lines (static-only) |
 
 ## Troubleshooting
 

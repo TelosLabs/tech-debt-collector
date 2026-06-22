@@ -29,12 +29,15 @@ module TechDebt
           match = line.match(%r{^(?<file>[^:]+):(?<line>\d+)\s+(?<identifier>\S+)\s+is not called from anywhere})
           next unless match
 
+          line = match[:line].to_i
           {
             file: match[:file],
             identifier: match[:identifier],
             type: "dead_code",
             detail: "Method appears to be uncalled (debride)",
-            score: 1
+            score: 1,
+            line: line,
+            end_line: line
           }
         end
       end

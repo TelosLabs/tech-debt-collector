@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 require "octokit"
+require_relative "../github/comment_upserter"
 
 module TechDebt
   module Verification
     class ResultReporter
+      MARKER = "<!-- wall_e_pr_verification -->"
+
       def initialize(client:, repo:, pr_number:, dry_run: false)
         @client = client
         @repo = repo
@@ -19,13 +22,17 @@ module TechDebt
           return
         end
 
-        @client.add_comment(@repo, @pr_number, body)
+        upserter.upsert(body, marker: MARKER)
         return unless close_on_pass && all_pass?(results)
 
         close_linked_issues(results)
       end
 
       private
+
+      def upserter
+        Github::CommentUpserter.new(client: @client, repo: @repo, pr_number: @pr_number)
+      end
 
       def all_pass?(results)
         results.all? { |r| r["verdict"] == "pass" }
@@ -48,6 +55,8 @@ module TechDebt
         lines = ["## wall-e PR verification", ""]
         if results.empty?
           lines << "_No verification results._"
+          lines << ""
+          lines << MARKER
           return lines.join("\n")
         end
 
@@ -73,6 +82,7 @@ module TechDebt
           lines << ""
         end
 
+        lines << MARKER
         lines.join("\n").strip
       end
 

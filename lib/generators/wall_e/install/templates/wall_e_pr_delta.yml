@@ -1,0 +1,29 @@
+name: wall-e debt delta
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# Cancel superseded runs when a PR is updated quickly.
+concurrency:
+  group: wall-e-pr-delta-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr_delta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Comment debt delta on PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bundle exec wall-e --pr-delta ${{ github.event.pull_request.number }}
