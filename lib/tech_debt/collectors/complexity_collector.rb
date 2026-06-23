@@ -36,18 +36,21 @@ module TechDebt
           score = match[:score].to_f
           next if score < threshold
 
-          file = rest[%r{(?<path>[\w\/\.\-]+\.rb):\d+(?:-\d+)?}, :path]
-          next unless file
+          location = rest.match(%r{(?<path>[\w/.\-]+\.rb):(?<start>\d+)(?:-(?<end>\d+))?})
+          next unless location
 
           identifier = rest.sub(%r{\s+[\w\/\.\-]+\.rb:\d+(?:-\d+)?\s*$}, "")
           next if identifier =~ /\Amain#none\z/i
 
+          start_line = location[:start].to_i
           {
-            file: file,
+            file: location[:path],
             identifier: identifier,
             type: "high_complexity",
             detail: "Method complexity score #{score} exceeds threshold #{threshold}",
-            score: score
+            score: score,
+            line: start_line,
+            end_line: location[:end] ? location[:end].to_i : start_line
           }
         end
       end

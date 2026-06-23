@@ -17,7 +17,8 @@ options = {
   dry_run: false,
   skip_llm: false,
   max_issues: nil,
-  verify_pr: nil
+  verify_pr: nil,
+  pr_delta: nil
 }
 
 OptionParser.new do |opts|
@@ -54,6 +55,10 @@ OptionParser.new do |opts|
   opts.on("--verify-pr NUMBER", Integer, "Verify a PR against linked wall-e issues (skips normal scan)") do |value|
     options[:verify_pr] = value
   end
+
+  opts.on("--pr-delta NUMBER", Integer, "Comment on a PR with debt added on its changed lines (skips normal scan)") do |value|
+    options[:pr_delta] = value
+  end
 end.parse!
 
 config = TechDebt::Config.load(options[:config_path])
@@ -77,6 +82,24 @@ if options[:verify_pr]
 
   puts JSON.pretty_generate(summary)
   exit 1 if summary["status"] == "error"
+elsif options[:pr_delta]
+  require "tech_debt/delta/pr_delta"
+  begin
+    summary = TechDebt::Delta::PrDelta.new(
+      config,
+      pr_number: options[:pr_delta],
+      dry_run: options[:dry_run]
+    ).run
+  rescue Octokit::NotFound => e
+    warn "[wall-e] #{e.message}"
+    exit 1
+  rescue ArgumentError => e
+    warn "[wall-e] #{e.message}"
+    exit 1
+  end
+
+  puts JSON.pretty_generate(summary)
+  exit 1 if summary["status"] == "fail"
 else
   summary = TechDebt::Analyzer.new(
     config,

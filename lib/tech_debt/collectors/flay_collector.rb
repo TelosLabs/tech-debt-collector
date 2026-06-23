@@ -77,7 +77,9 @@ module TechDebt
             identifier: "#{loc[:file]}:#{loc[:line]}",
             type: "structural_duplication",
             detail: build_detail(match_type, node_type, mass, other_refs),
-            score: mass
+            score: mass,
+            line: loc[:line],
+            end_line: loc[:line]
           }
         end
       end

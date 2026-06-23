@@ -51,3 +51,10 @@ auto_assign:
 # Optional: PR verification (--verify-pr) can auto-close issues when all checks pass (use with care).
 verification:
   close_on_pass: false
+
+# Optional: per-PR debt delta (--pr-delta). Static-only; runs collectors on changed Ruby
+# files and comments with debt found on the lines the PR added. No issues are created.
+pr_delta:
+  enabled: true
+  fail_on: "none" # "none" (comment only) | "high" (fail check on high-severity) | "any"
+  debt_types: [] # empty = all debt types

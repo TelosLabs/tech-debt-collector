@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tech_debt/config"
 require "tech_debt/collectors/flay_collector"
 
 RSpec.describe TechDebt::Collectors::FlayCollector do
@@ -16,6 +17,10 @@ RSpec.describe TechDebt::Collectors::FlayCollector do
 
   # Returns a collector with an explicit file list so we bypass glob expansion.
   let(:files) { ["app/models/order.rb", "app/models/invoice.rb"] }
+
+  # The fixture paths don't exist on disk; treat the explicit file list as present
+  # so BaseCollector#target_files keeps them.
+  before { allow(File).to receive(:file?).and_return(true) }
 
   describe "#call" do
     context "when flay finds no output" do

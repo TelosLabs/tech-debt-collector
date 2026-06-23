@@ -26,16 +26,17 @@ module TechDebt
       end
 
       def model_file?(file)
-        file.match?(%r{/app/models/})
+        file.match?(%r{(?:\A|/)app/models/})
       end
 
       def job_file?(file)
-        file.match?(%r{/app/jobs/})
+        file.match?(%r{(?:\A|/)app/jobs/})
       end
 
       def current_attribute_violations(file, content)
         return [] unless content.match?(/Current\.\w+/)
 
+        line = line_of(content, /Current\.\w+/)
         [{
           file: file,
           identifier: extract_class_name(content) || File.basename(file, ".rb"),
@@ -43,7 +44,9 @@ module TechDebt
           detail: "References Current.* inside a model — layer violation. " \
                   "Current context is unavailable in background jobs and rake tasks, " \
                   "causing silent nil failures. Pass the value as an explicit parameter instead.",
-          score: 8
+          score: 8,
+          line: line,
+          end_line: line
         }]
       end
 
@@ -54,6 +57,7 @@ module TechDebt
         return [] if body.nil? || body.size != 1
         return [] unless body[0].match?(/\A\w+\.\w+[\w!?]*(\(.*\))?\z/)
 
+        line = line_of(content, /def perform/)
         [{
           file: file,
           identifier: "#{extract_class_name(content)}#perform",
@@ -61,8 +65,15 @@ module TechDebt
           detail: "Job perform delegates entirely to a single model method with no added logic — " \
                   "anemic job. Consider using the active_job-performs gem to eliminate the " \
                   "separate job class and declare background execution directly on the model.",
-          score: 5
+          score: 5,
+          line: line,
+          end_line: line
         }]
+      end
+
+      def line_of(content, regex)
+        index = content.each_line.find_index { |l| l.match?(regex) }
+        index ? index + 1 : 1
       end
 
       def extract_perform_body(content)
