@@ -6,6 +6,7 @@ require_relative "collectors/debride_collector"
 require_relative "collectors/complexity_collector"
 require_relative "collectors/flay_collector"
 require_relative "collectors/layer_collector"
+require_relative "collectors/hotspot_collector"
 require_relative "github/fingerprint"
 require_relative "github/agent_assigner"
 require_relative "github/issue_manager"
@@ -44,7 +45,8 @@ module TechDebt
         Collectors::DebrideCollector.new(@config),
         Collectors::ComplexityCollector.new(@config),
         Collectors::FlayCollector.new(@config),
-        Collectors::LayerCollector.new(@config)
+        Collectors::LayerCollector.new(@config),
+        Collectors::HotspotCollector.new(@config)
       ]
 
       collectors.flat_map(&:call)
@@ -81,6 +83,8 @@ module TechDebt
         { "pattern_present" => true }
       when "structural_duplication"
         { "flay_mass" => score.to_f }
+      when "hotspot"
+        { "hotspot_score" => score.to_f }
       else
         {}
       end
@@ -114,6 +118,8 @@ module TechDebt
         { "pattern_present" => true }
       when "structural_duplication"
         { "flay_mass" => item.fetch("score", 0).to_f }
+      when "hotspot"
+        { "hotspot_score" => item.fetch("score", 0).to_f }
       else
         {}
       end

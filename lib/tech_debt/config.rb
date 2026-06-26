@@ -9,6 +9,13 @@ module TechDebt
     SUMMARY_PATH = "tmp/wall_e_report.json"
     DEFAULT_FLOG_THRESHOLD = 25
     DEFAULT_FLAY_THRESHOLD = 25
+    HOTSPOT_DEFAULTS = {
+      "enabled" => true,
+      "window_months" => 6,
+      "min_commits" => 5,
+      "min_loc" => 100,
+      "max_files" => 10
+    }.freeze
 
     attr_reader :raw
 
@@ -44,6 +51,11 @@ module TechDebt
 
     def flay_threshold
       analysis.fetch("flay_threshold", DEFAULT_FLAY_THRESHOLD).to_i
+    end
+
+    def hotspot
+      custom = analysis["hotspot"]
+      HOTSPOT_DEFAULTS.merge(custom.is_a?(Hash) ? custom : {})
     end
 
     def auto_assign
