@@ -35,6 +35,8 @@ You will receive a JSON object with:
 - `candidates`: an array of signals from static analysis tools (dead code detectors, complexity scorers). Each has `file`, `identifier`, `type`, `detail`, and `score`.
 - `code_snippets`: a map of `{ "file_path": "source code contents" }` for the flagged files.
 
+Some candidates have `type: "hotspot"`. These are **orientation signals, not findings**: the file simply has high git churn and large size (where debt tends to concentrate), so it was included for you to inspect. Read its snippet and either diagnose a concrete debt type from the existing taxonomy below, or reject it if the file is large and busy but healthy. Never emit `hotspot` as an output `debt_type`.
+
 # Task
 
 1. Analyze all candidates and their corresponding source code.

@@ -31,6 +31,14 @@ analysis:
     - "node_modules/**"
   flog_threshold: 25 # methods with a flog score above this are surfaced as high_complexity candidates
   flay_threshold: 25 # structural duplication groups with mass below this are ignored
+  # Orientation pass: surfaces maintenance hotspots (high git churn + large files) so the LLM
+  # also reviews files the AST/dead-code collectors never flag. Set enabled: false to skip it.
+  hotspot:
+    enabled: true
+    window_months: 6 # churn window for `git log --since`
+    min_commits: 5 # ignore files changed fewer times than this in the window
+    min_loc: 100 # ignore files smaller than this many lines
+    max_files: 10 # cap the number of hotspot candidates per run
 
 github:
   repo: null # defaults to GITHUB_REPOSITORY env var

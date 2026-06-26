@@ -152,6 +152,8 @@ module TechDebt
           "Complexity score: #{score}/#{@config.flog_threshold} threshold (higher is worse)"
         when 'dead_code'
           "Dead-code signal score: #{score} (binary/static detector signal, not a complexity scale)"
+        when 'hotspot'
+          "Hotspot score: #{score} (commits in window multiplied by file size; higher means more churn-weighted debt risk)"
         when 'semantic_duplication'
           "Impact score: #{score} — duplicated lines across all locations"
         else
